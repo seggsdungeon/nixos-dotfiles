@@ -6,6 +6,7 @@ cp ~/.config/hypr/set-wallpaper.sh ~/dotfiles/.config/hypr/
 cp ~/.config/waybar/config.jsonc ~/dotfiles/.config/waybar/
 cp ~/.config/waybar/modules.jsonc ~/dotfiles/.config/waybar/
 cp ~/.config/waybar/style.css ~/dotfiles/.config/waybar/
+cp ~/.config/nwg-displays ~/dotfiles/.config/nwg-displays -r
 cd ~/dotfiles
 git add .
 git commit -m "sync $(date +%Y-%m-%d)"
