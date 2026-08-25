@@ -23,7 +23,7 @@
   boot.loader.systemd-boot.configurationLimit = 10;
 
   # A recent kernel helps with Alder Lake (12th gen) power/thermal handling.
-  boot.kernelPackages = pkgs.linuxPackages_latest;
+  boot.kernelPackages = pkgs.linuxPackages_7_1;
 
   ##########################################################################
   # Networking
@@ -282,6 +282,7 @@
     mpv             # media player
     vscodium        # editor
     vesktop         # Discord (Wayland-native client)
+    spotify         # Spotify
     spicetify-cli   # Spotify customization CLI
     teams-for-linux # microsoft teams
     libreoffice     # Office
