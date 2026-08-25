@@ -282,13 +282,15 @@
     mpv             # media player
     vscodium        # editor
     vesktop         # Discord (Wayland-native client)
-    spotify         # Spotify
-    spicetify-cli   # Spotify customization CLI
     teams-for-linux # microsoft teams
     libreoffice     # Office
     claude-code     # agentic coding tool
     dotnet-sdk      # dotnet sdk
 
+    # deprecated (moved into flakes)
+    # spotify         # Spotify
+    # spicetify-cli   # Spotify customization CLI
+    
     # dev
     devenv          # declarative development environments
 
