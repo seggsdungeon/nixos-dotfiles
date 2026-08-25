@@ -183,6 +183,21 @@
   services.blueman.enable = true;
 
   ##########################################################################
+  # Embedded development — Raspberry Pi RP2xxx / SparkFun boards
+  ##########################################################################
+  # Lets the logged-in user flash boards and open the serial console without
+  # being a member of `dialout`. Two vendor IDs are needed because the board
+  # changes identity depending on what it is running:
+  #   2e8a = Raspberry Pi  (RP2350 BOOTSEL mass storage, stock firmware)
+  #   1b4f = SparkFun      (Thing Plus RP2350 running an Arduino sketch)
+  services.udev.extraRules = ''
+    SUBSYSTEM=="usb", ATTR{idVendor}=="2e8a", MODE="0666", TAG+="uaccess"
+    SUBSYSTEM=="usb", ATTR{idVendor}=="1b4f", MODE="0666", TAG+="uaccess"
+    SUBSYSTEM=="tty", ATTRS{idVendor}=="2e8a", MODE="0666", TAG+="uaccess"
+    SUBSYSTEM=="tty", ATTRS{idVendor}=="1b4f", MODE="0666", TAG+="uaccess"
+  '';
+
+  ##########################################################################
   # Users
   ##########################################################################
   users.users.user = {
@@ -197,6 +212,18 @@
   # Packages
   ##########################################################################
   nixpkgs.config.allowUnfree = true;   # required for NVIDIA + Discord
+
+  programs.nix-ld = {
+    enable = true;
+    libraries = with pkgs; [
+      stdenv.cc.cc.lib   # libstdc++, libgcc_s — the most common culprits
+      zlib
+      openssl
+      curl
+      icu
+      libunwind
+    ];
+  };
 
   environment.systemPackages = with pkgs; [
     # core CLI
@@ -251,14 +278,15 @@
     # apps
     ani-cli         # anime cli
     brave           # browser
+    google-chrome   # browser
     mpv             # media player
     vscodium        # editor
     vesktop         # Discord (Wayland-native client)
     spicetify-cli   # Spotify customization CLI
-    gnome-control-center  # settings GUI
     teams-for-linux # microsoft teams
     libreoffice     # Office
     claude-code     # agentic coding tool
+    dotnet-sdk      # dotnet sdk
 
     # dev
     devenv          # declarative development environments
