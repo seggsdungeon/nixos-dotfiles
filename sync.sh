@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-cp /etc/nixos ~/dotfiles/ -r
+cp /etc/nixos/. ~/dotfiles/ -r
 cp ~/.config/hypr/hyprland.conf ~/dotfiles/.config/hypr/
 cp ~/.config/hypr/hyprpaper.conf ~/dotfiles/.config/hypr/
 cp ~/.config/hypr/set-wallpaper.sh ~/dotfiles/.config/hypr/
