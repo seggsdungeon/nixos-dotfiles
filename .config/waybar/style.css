@@ -39,7 +39,7 @@ tooltip {
 #custom-notification {
     padding: 0px 5px;
     transition: all .3s ease;
-    color:@color7;
+    color: #fff;
 }
 #clock{
     padding: 0px 5px;

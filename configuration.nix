@@ -4,10 +4,25 @@
 # Hyprland (Wayland) rendering on the Intel iGPU (iris), NVIDIA available
 # via PRIME render offload for the occasional GPU-heavy app.
 #
-# After placing this file, build with:  sudo nixos-rebuild switch
 
 { config, lib, pkgs, ... }:
 
+let 
+  bsodGrubTheme = pkgs.stdenvNoCC.mkDerivation {
+    pname = "bsod-grub-theme";
+    version = "f8d9456";
+    src = pkgs.fetchFromGitHub {
+      owner = "ademmenh";
+      repo = "bsod";
+      rev = "f8d9456d0fe244e208b5858f7883cac44481efc1";
+      hash = "sha256-Fj9CS+29S6cq6LE6AmjKn/UEReT551DlcJBZCbzeIqA=";
+    };
+    installPhase = ''
+      mkdir -p $out
+      cp -r bsod/* $out/
+    '';
+  };
+in
 {
   imports =
     [ ./hardware-configuration.nix
@@ -18,9 +33,19 @@
   ##########################################################################
   # Boot
   ##########################################################################
-  boot.loader.systemd-boot.enable = true;
-  boot.loader.efi.canTouchEfiVariables = true;
+  boot.loader.systemd-boot.enable = false;
   boot.loader.systemd-boot.configurationLimit = 10;
+  boot.loader.efi.canTouchEfiVariables = true;
+  
+  boot.loader.grub = {
+    enable = true;
+    efiSupport = true;
+    device = "nodev";
+    useOSProber = true;
+    configurationLimit = 10;
+    theme = bsodGrubTheme;
+    gfxmodeEfi = "1920x1200";
+  };
 
   # A recent kernel helps with Alder Lake (12th gen) power/thermal handling.
   boot.kernelPackages = pkgs.linuxPackages_7_1;
@@ -53,9 +78,6 @@
       libvdpau-va-gl
     ];
   };
-
-  # Force the modern iHD VAAPI driver.
-  environment.sessionVariables.LIBVA_DRIVER_NAME = "iHD";
 
   # Load the NVIDIA kernel module (needed even for offload-only use).
   services.xserver.videoDrivers = [ "nvidia" ];
@@ -132,6 +154,9 @@
     GTK_USE_PORTAL = "1";          # Native portal file picker in Electron apps
     QT_QPA_PLATFORM = "wayland";   # flameshot dependency
     XCURSOR_THEME = "Adwaita";
+
+    # Force the modern iHD VAAPI driver.
+    LIBVA_DRIVER_NAME = "iHD";
 
     # --- GPU: render Wayland session on Intel iGPU ---
     AQ_DRM_DEVICES = "/dev/dri/card2:/dev/dri/card1";
@@ -241,7 +266,7 @@
     nautilus        # file manager
     grim slurp      # screenshots
     brightnessctl   # backlight
-    polkit_gnome    # elevated access GUI
+    hyprpolkitagent # elevated access GUI
     wlogout         # power menu
     hypridle        # idle daemon for hyprlock
     thinkfan        # fan control / thermal manager
@@ -280,19 +305,21 @@
     brave           # browser
     google-chrome   # browser
     mpv             # media player
-    vscodium        # editor
     vesktop         # Discord (Wayland-native client)
     teams-for-linux # microsoft teams
     libreoffice     # Office
-    claude-code     # agentic coding tool
-    dotnet-sdk      # dotnet sdk
+    siyuan          # obsidian / notion alternative
+    masterpdfeditor4  # pdf editor
 
     # deprecated (moved into flakes)
     # spotify         # Spotify
     # spicetify-cli   # Spotify customization CLI
     
     # dev
+    vscodium        # editor
     devenv          # declarative development environments
+    claude-code     # agentic coding tool
+    dotnet-sdk      # dotnet sdk
 
     # gpu / diagnostics
     mesa-demos
