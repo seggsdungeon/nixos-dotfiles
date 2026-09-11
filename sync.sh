@@ -1,13 +1,50 @@
 #!/usr/bin/env bash
-cp /etc/nixos/. ~/dotfiles/ -r
-cp ~/.config/hypr/hyprland.conf ~/dotfiles/.config/hypr/
-cp ~/.config/hypr/hyprpaper.conf ~/dotfiles/.config/hypr/
-cp ~/.config/hypr/set-wallpaper.sh ~/dotfiles/.config/hypr/
-cp ~/.config/waybar/config.jsonc ~/dotfiles/.config/waybar/
-cp ~/.config/waybar/modules.jsonc ~/dotfiles/.config/waybar/
-cp ~/.config/waybar/style.css ~/dotfiles/.config/waybar/
-cp ~/.config/nwg-displays ~/dotfiles/.config/nwg-displays -r
-cd ~/dotfiles
-git add .
+# Sync live config into ~/dotfiles and push.
+# Fails loudly: a partial sync must not look like a clean one.
+set -euo pipefail
+
+DOTS="$HOME/dotfiles"
+
+# --- NixOS ---------------------------------------------------------------
+# Trailing /. copies the *contents* of /etc/nixos, not the directory itself,
+# so this picks up configuration.nix, flake.nix, flake.lock, spicetify.nix
+# and hardware-configuration.nix without nesting.
+cp -r /etc/nixos/. "$DOTS/"
+
+# --- Hyprland ------------------------------------------------------------
+mkdir -p "$DOTS/.config/hypr"
+cp ~/.config/hypr/hyprland.conf "$DOTS/.config/hypr/"
+
+# monitors.conf / workspaces.conf are nwg-displays output — regenerated on
+# any layout change. Uncomment if you want them versioned.
+# cp ~/.config/hypr/monitors.conf   "$DOTS/.config/hypr/"
+# cp ~/.config/hypr/workspaces.conf "$DOTS/.config/hypr/"
+
+# --- nwg-displays --------------------------------------------------------
+# rsync, not cp -r: `cp -r src dest` copies src *inside* dest when dest
+# already exists, which is what buried .config/nwg-displays/nwg-displays/.
+# Trailing slashes on BOTH paths are load-bearing for rsync.
+# --delete means a profile removed locally is removed from the repo too.
+mkdir -p "$DOTS/.config/nwg-displays"
+rsync -a --delete ~/.config/nwg-displays/ "$DOTS/.config/nwg-displays/"
+
+# --- Brain_Shell ---------------------------------------------------------
+# Uncomment once these exist (post-install). Your patched hypridle.conf and
+# hyprlock.conf live in a git clone, so `git pull` reverts them — copying
+# them here is a stopgap until the source is pinned properly.
+# mkdir -p "$DOTS/.config/Brain_Shell" "$DOTS/brain-shell-patches"
+# rsync -a --delete ~/.config/Brain_Shell/ "$DOTS/.config/Brain_Shell/"
+# cp ~/.local/src/Brain_Shell/src/config/hypridle.conf "$DOTS/brain-shell-patches/"
+# cp ~/.local/src/Brain_Shell/src/config/hyprlock.conf "$DOTS/brain-shell-patches/"
+
+# --- Commit --------------------------------------------------------------
+cd "$DOTS"
+git add -A                      # -A catches deletions anywhere in the tree
+
+if git diff --cached --quiet; then
+    echo "sync: nothing changed"
+    exit 0                      # `git commit` with no staged changes exits
+fi                              # non-zero, which set -e would treat as failure
+
 git commit -m "sync $(date +%Y-%m-%d)"
 git push
