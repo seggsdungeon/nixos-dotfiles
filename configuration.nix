@@ -4,10 +4,17 @@
 # Hyprland (Wayland) rendering on the Intel iGPU (iris), NVIDIA available
 # via PRIME render offload for the occasional GPU-heavy app.
 #
+# After placing this file, build with:  sudo nixos-rebuild switch
 
 { config, lib, pkgs, ... }:
 
-let 
+let
+  # "bsod" GRUB theme — https://github.com/ademmenh/bsod
+  # Packaged manually as a derivation because upstream ships a Makefile
+  # that pokes at /etc/default/grub and calls grub2-mkconfig directly,
+  # which doesn't fit NixOS's declarative boot.loader.grub.theme option.
+  # The theme's files live in a "bsod/" subfolder of the repo, so the
+  # installPhase copies just that subfolder's contents to $out.
   bsodGrubTheme = pkgs.stdenvNoCC.mkDerivation {
     pname = "bsod-grub-theme";
     version = "f8d9456";
@@ -15,11 +22,15 @@ let
       owner = "ademmenh";
       repo = "bsod";
       rev = "f8d9456d0fe244e208b5858f7883cac44481efc1";
+      # Placeholder — nix will refuse to build and print the real hash
+      # the first time. Paste that value in here. See the notes below
+      # the file for the exact command to run instead, if you'd rather
+      # get it up front.
       hash = "sha256-Fj9CS+29S6cq6LE6AmjKn/UEReT551DlcJBZCbzeIqA=";
     };
     installPhase = ''
       mkdir -p $out
-      cp -r bsod/* $out/
+      cp -r $src/bsod/* $out/
     '';
   };
 in
@@ -33,18 +44,19 @@ in
   ##########################################################################
   # Boot
   ##########################################################################
+  # Switched from systemd-boot to GRUB so the "bsod" theme (a GRUB theme)
+  # has something to render. systemd-boot has no equivalent theming.
   boot.loader.systemd-boot.enable = false;
-  boot.loader.systemd-boot.configurationLimit = 10;
+
   boot.loader.efi.canTouchEfiVariables = true;
-  
   boot.loader.grub = {
     enable = true;
     efiSupport = true;
-    device = "nodev";
-    useOSProber = true;
+    device = "nodev";        # required for pure-EFI installs (no MBR write)
+    useOSProber = true;     # flip to true if you dual-boot another OS
     configurationLimit = 10;
     theme = bsodGrubTheme;
-    gfxmodeEfi = "1920x1200";
+    gfxmodeEfi = "1920x1080"; # matches the theme's default background res
   };
 
   # A recent kernel helps with Alder Lake (12th gen) power/thermal handling.
@@ -104,18 +116,15 @@ in
       };
 
       # PCI bus IDs for this exact laptop. Verify with `lspci`:
-      #   Intel  -> 00:02.0  => "PCI:0:2:0"
-      #   NVIDIA -> 01:00.0  => "PCI:1:0:0"
-      # If yours differ, edit these two lines.
       intelBusId  = "PCI:0:2:0";
-      nvidiaBusId = "PCI:1:0:0";
+      nvidiaBusId = "PCI:3:0:0";
     };
   };
 
   ##########################################################################
   # Fan control
   ##########################################################################
-  boot.kernelModules = [ "kvm-intel" "thinkpad_acpi" ];
+  
   boot.extraModprobeConfig = ''
     options thinkpad_acpi fan_control=1
   '';
@@ -135,7 +144,6 @@ in
       {
         type = "hwmon";
         query = "/sys/devices/platform/thinkpad_hwmon/hwmon/hwmon2/temp1_input";
-        indices = [ 0 ];
       }
     ];
   };
@@ -148,28 +156,30 @@ in
     xwayland.enable = true;
   };
 
-  environment.sessionVariables = {
+  environment.sessionVariables = {  
+    # --- GPU: render the Wayland session on the Intel iGPU ---
+    LIBVA_DRIVER_NAME = "iHD";  
+
     # --- Wayland / Electron ---
     NIXOS_OZONE_WL = "1";          # Chromium/Electron apps use Wayland
-    GTK_USE_PORTAL = "1";          # Native portal file picker in Electron apps
     QT_QPA_PLATFORM = "wayland";   # flameshot dependency
     XCURSOR_THEME = "Adwaita";
 
-    # Force the modern iHD VAAPI driver.
-    LIBVA_DRIVER_NAME = "iHD";
-
     # --- GPU: render Wayland session on Intel iGPU ---
-    AQ_DRM_DEVICES = "/dev/dri/card2:/dev/dri/card1";
+    AQ_DRM_DEVICES = "/dev/dri/by-path/pci-0000:00:02.0-card";
     # ^ If desktop renders on the wrong GPU, swap card2/card1 here.
   };
 
   services.power-profiles-daemon.enable = true;
 
   # XDG portals for screen sharing, file pickers, etc.
-  xdg.portal = {
-    enable = true;
-    extraPortals = [ pkgs.xdg-desktop-portal-gtk ];
-  };
+xdg.portal = {
+  enable = true;
+  extraPortals = [
+    pkgs.xdg-desktop-portal-gtk
+    pkgs.xdg-desktop-portal-hyprland   # screen sharing + screen picker
+  ];
+};
 
   ##########################################################################
   # Login manager
@@ -199,13 +209,12 @@ in
   ##########################################################################
   services.fwupd.enable = true;          # firmware updates
   services.thermald.enable = true;       # Intel thermal management
-  services.fprintd.enable = true;        # fingerprint reader (P16s has one)
+  services.fprintd.enable = false;        # fingerprint reader (not wired yet)
   hardware.enableRedistributableFirmware = true;
 
   # Bluetooth
   hardware.bluetooth.enable = true;
   hardware.bluetooth.powerOnBoot = true;
-  services.blueman.enable = true;
 
   ##########################################################################
   # Embedded development — Raspberry Pi RP2xxx / SparkFun boards
@@ -254,50 +263,46 @@ in
     # core CLI
     git wget curl
 
+    # QuickShell environment
+    quickshell        # the QML shell runtime
+    matugen           # Material You palette generation (required)
+    awww              # wallpaper daemon with an IPC Brain_Shell drives
+    imagemagick       # image processing for wallpaper/colour work
+    wf-recorder       # screen recording
+    cava              # audio visualiser widget
+    lm_sensors        # temperature readouts
+    hyprsunset        # colour temperature
+    hyprpolkitagent   # replaces polkit-gnome
+
+
+
+
     # wayland / hyprland ecosystem
-    waybar          # status bar
-    wofi            # launcher
     kitty           # terminal
-    mako            # notifications
-    hyprpaper       # wallpaper
     hyprlock        # screen locker
     wl-clipboard    # clipboard
     cliphist        # clipboard history
     nautilus        # file manager
     grim slurp      # screenshots
     brightnessctl   # backlight
-    hyprpolkitagent # elevated access GUI
     wlogout         # power menu
     hypridle        # idle daemon for hyprlock
-    thinkfan        # fan control / thermal manager
     wtype           # key press simulator
     flameshot       # snipping tool
     nwg-displays    # GUI monitor layout manager
 
     # waybar modules / dependencies
-    pulseaudio      # 
-    python3         # required by waybar scripts
     pavucontrol     # audio GUI
-    blueman         # bluetooth GUI
-    peaclock        # terminal clock
     alacritty       # terminal emulator
     playerctl       # media player control
     adwaita-icon-theme  # icon package
-    swaynotificationcenter  # notification center
-    networkmanagerapplet   # nm-connection-editor
     nwg-look               # GTK settings (action-2-1)
     libsForQt5.qtstyleplugin-kvantum  # only if you use Qt theming
     htop            # if not already present
-    hyprpicker
-    pywal
     # bluez           # already present in l. 153
     # networkmanager  # already present in l. 32
     
-
-    # swaync - dependencies
-    # swaynotificationcenter
     gvfs
-    # pywal
     libnotify
 
     # apps
@@ -306,20 +311,19 @@ in
     google-chrome   # browser
     mpv             # media player
     vesktop         # Discord (Wayland-native client)
-    teams-for-linux # microsoft teams
+    spotify         # Spotify
+    spicetify-cli   # Spotify customization CLI
+    teams-for-linux # microsoft teams (community version)
     libreoffice     # Office
-    siyuan          # obsidian / notion alternative
-    masterpdfeditor4  # pdf editor
+    siyuan          # notetaking
+    masterpdfeditor4 # pdfs 
 
-    # deprecated (moved into flakes)
-    # spotify         # Spotify
-    # spicetify-cli   # Spotify customization CLI
-    
     # dev
     vscodium        # editor
-    devenv          # declarative development environments
     claude-code     # agentic coding tool
     dotnet-sdk      # dotnet sdk
+    python3         # python3
+    devenv          # declarative development environments
 
     # gpu / diagnostics
     mesa-demos
@@ -329,6 +333,8 @@ in
   ];
 
   fonts.packages = with pkgs; [
+    pkgs.nerd-fonts.jetbrains-mono
+    pkgs.nerd-fonts.noto
     pkgs.nerd-fonts.droid-sans-mono
     pkgs.nerd-fonts.caskaydia-cove 
     font-awesome
