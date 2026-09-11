@@ -22,10 +22,6 @@ let
       owner = "ademmenh";
       repo = "bsod";
       rev = "f8d9456d0fe244e208b5858f7883cac44481efc1";
-      # Placeholder — nix will refuse to build and print the real hash
-      # the first time. Paste that value in here. See the notes below
-      # the file for the exact command to run instead, if you'd rather
-      # get it up front.
       hash = "sha256-Fj9CS+29S6cq6LE6AmjKn/UEReT551DlcJBZCbzeIqA=";
     };
     installPhase = ''
@@ -157,17 +153,16 @@ in
   };
 
   environment.sessionVariables = {  
+
     # --- GPU: render the Wayland session on the Intel iGPU ---
     LIBVA_DRIVER_NAME = "iHD";  
+    AQ_DRM_DEVICES = "/dev/dri/by-path/pci-0000:00:02.0-card";
 
     # --- Wayland / Electron ---
     NIXOS_OZONE_WL = "1";          # Chromium/Electron apps use Wayland
     QT_QPA_PLATFORM = "wayland";   # flameshot dependency
     XCURSOR_THEME = "Adwaita";
 
-    # --- GPU: render Wayland session on Intel iGPU ---
-    AQ_DRM_DEVICES = "/dev/dri/by-path/pci-0000:00:02.0-card";
-    # ^ If desktop renders on the wrong GPU, swap card2/card1 here.
   };
 
   services.power-profiles-daemon.enable = true;
@@ -209,7 +204,7 @@ xdg.portal = {
   ##########################################################################
   services.fwupd.enable = true;          # firmware updates
   services.thermald.enable = true;       # Intel thermal management
-  services.fprintd.enable = false;        # fingerprint reader (not wired yet)
+  services.fprintd.enable = false;        # fingerprint reader (not wired yet )
   hardware.enableRedistributableFirmware = true;
 
   # Bluetooth
