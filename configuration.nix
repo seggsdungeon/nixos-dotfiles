@@ -156,7 +156,6 @@ in
 
     # --- GPU: render the Wayland session on the Intel iGPU ---
     LIBVA_DRIVER_NAME = "iHD";  
-    AQ_DRM_DEVICES = "/dev/dri/by-path/pci-0000:00:02.0-card";
 
     # --- Wayland / Electron ---
     NIXOS_OZONE_WL = "1";          # Chromium/Electron apps use Wayland
@@ -164,17 +163,17 @@ in
     XCURSOR_THEME = "Adwaita";
 
   };
-
+  services.upower.enable = true;
   services.power-profiles-daemon.enable = true;
 
   # XDG portals for screen sharing, file pickers, etc.
-xdg.portal = {
-  enable = true;
-  extraPortals = [
-    pkgs.xdg-desktop-portal-gtk
-    pkgs.xdg-desktop-portal-hyprland   # screen sharing + screen picker
-  ];
-};
+  xdg.portal = {
+    enable = true;
+    extraPortals = [
+      pkgs.xdg-desktop-portal-gtk
+      pkgs.xdg-desktop-portal-hyprland   # screen sharing + screen picker
+    ];
+  };
 
   ##########################################################################
   # Login manager
@@ -268,6 +267,8 @@ xdg.portal = {
     lm_sensors        # temperature readouts
     hyprsunset        # colour temperature
     hyprpolkitagent   # replaces polkit-gnome
+    qt6Packages.qt6ct
+    hyprshutdown
 
 
 
@@ -301,7 +302,7 @@ xdg.portal = {
     libnotify
 
     # apps
-    ani-cli         # anime cli
+    ani-cli anipy-cli # anime torrent
     brave           # browser
     google-chrome   # browser
     mpv             # media player
