@@ -6,7 +6,7 @@
 #
 # After placing this file, build with:  sudo nixos-rebuild switch
 
-{ config, lib, pkgs, ... }:
+{ config, lib, pkgs, pkgs-unstable, ... }:
 
 let
   # "bsod" GRUB theme — https://github.com/ademmenh/bsod
@@ -182,7 +182,7 @@ in
   services.greetd = {
     enable = true;
     settings.default_session = {
-      command = "${pkgs.tuigreet}/bin/tuigreet --time --cmd start-hyprland";
+      command = "${pkgs.tuigreet}/bin/tuigreet --time --background matrix --cmd start-hyprland";
       user = "greeter";
     };
   };
@@ -272,20 +272,23 @@ in
 
 
 
+    # terminal
+      kitty           
+      zsh             
+      fastfetch
 
     # wayland / hyprland ecosystem
-    kitty           # terminal
-    hyprlock        # screen locker
-    wl-clipboard    # clipboard
-    cliphist        # clipboard history
-    nautilus        # file manager
-    grim slurp      # screenshots
-    brightnessctl   # backlight
-    wlogout         # power menu
-    hypridle        # idle daemon for hyprlock
-    wtype           # key press simulator
-    flameshot       # snipping tool
-    nwg-displays    # GUI monitor layout manager
+      hyprlock        # screen locker
+      wl-clipboard    # clipboard
+      cliphist        # clipboard history
+      nautilus        # file manager
+      grim slurp      # screenshots
+      brightnessctl   # backlight
+      wlogout         # power menu
+      hypridle        # idle daemon for hyprlock
+      wtype           # key press simulator
+      flameshot       # snipping tool
+      nwg-displays    # GUI monitor layout manager
 
     # waybar modules / dependencies
     pavucontrol     # audio GUI
@@ -302,7 +305,7 @@ in
     libnotify
 
     # apps
-    ani-cli anipy-cli # anime torrent
+    ani-cli         # anime torrent
     brave           # browser
     google-chrome   # browser
     mpv             # media player
@@ -310,6 +313,7 @@ in
     spotify         # Spotify
     spicetify-cli   # Spotify customization CLI
     teams-for-linux # microsoft teams (community version)
+    p3x-onenote     # Linux Electron Onenote
     libreoffice     # Office
     siyuan          # notetaking
     masterpdfeditor4 # pdfs 
@@ -320,6 +324,8 @@ in
     dotnet-sdk      # dotnet sdk
     python3         # python3
     devenv          # declarative development environments
+    pkgs-unstable.cisco-packet-tracer_9 # packet tracer for school
+  
 
     # gpu / diagnostics
     mesa-demos
@@ -330,6 +336,7 @@ in
 
   fonts.packages = with pkgs; [
     pkgs.nerd-fonts.jetbrains-mono
+    pkgs.nerd-fonts.symbols-only
     pkgs.nerd-fonts.noto
     pkgs.nerd-fonts.droid-sans-mono
     pkgs.nerd-fonts.caskaydia-cove 
