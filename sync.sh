@@ -16,6 +16,8 @@ cp -r /etc/nixos/. "$DOTS/"
 mkdir -p "$DOTS/.config/hypr"
 cp "$USER/.config/hypr/hyprland.conf" "$DOTS/.config/hypr/"
 
+mkdir -p "$DOTS/.config/hypr/scripts"
+rsync -a --delete "$USER/.config/hypr/scripts/" "$DOTS/.config/hypr/scripts/"
 # monitors.conf / workspaces.conf are nwg-displays output — regenerated on
 # any layout change. Uncomment if you want them versioned.
 # cp "$USER/.config/hypr/monitors.conf"   "$DOTS/.config/hypr/"
