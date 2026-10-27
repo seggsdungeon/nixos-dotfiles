@@ -125,7 +125,16 @@ in
     options thinkpad_acpi fan_control=1
   '';
 
-    services.thinkfan = {
+
+  security.sudo.extraRules = [{
+    users = [ "user" ];
+    commands = [{
+      command = "/run/current-system/sw/bin/fan-mode";
+      options = [ "NOPASSWD" ];
+    }];
+  }];
+
+  services.thinkfan = {
     enable = true;
     levels = [
       [ 0  0   55 ]
@@ -139,7 +148,8 @@ in
     sensors = [
       {
         type = "hwmon";
-        query = "/sys/devices/platform/thinkpad_hwmon/hwmon/hwmon2/temp1_input";
+        query = "/sys/devices/platform/thinkpad_hwmon/hwmon";
+        indices = [ 1 ];
       }
     ];
   };
@@ -187,6 +197,51 @@ in
     };
   };
 
+  services.fprintd.enable = true;        # fingerprint reader
+  
+  # fprintAuth puts fingerprint as sufficient BEFORE the password, which replaces it. Outer layer + account changes stay password-only; custom MFA rules come later.
+
+
+
+  environment.etc."u2f-mappings".text = "user:OO03XOCbJSnODHNLSYLFk2a+EjDp1pS4jNlnSqrdvrdHRyCTWOZBTBjIYVoMlnmFOijs302GfbckWtQOScgLxw==,VWq2veYunu4iiymaQCDlhT9Fsi6OV7Y5lWH9mSLsp7XpU9MZQt62ppTVN2+Ndcqeq9aKBBwu9d4N/zlH2kYNRQ==,es256,+presence+pin:JS00RnbrYI+f81Kg9pv6jcu/uO52RHah0+DCHp1G2r0l/oy/yacpBlgreOavSk8s09tTU1AJ4dx3RULNKiuj5g==,yD/Bir+HZkjxTgF1CkGjuF1GKKsBumZmRJty8TKV74uo8Pvc5Ye5vHoLSSOaq3K2MAB54s8c7uLsem2mjvdlOQ==,es256,+presence+pin";
+  security.pam.u2f.enable = true;
+  security.pam.u2f.settings = {
+    authfile = "/etc/u2f-mappings";
+    cue = true;
+  };
+
+  # Resulting auth stack (check with: grep '^auth' /etc/pam.d/login):
+  #   unix     requisite   password must be right, else stop
+  #   u2f      sufficient  key touch (+PIN) is enough as 2nd factor
+  #   fprintd  sufficient  fingerprint is enough as 2nd factor
+  #   deny     required    no 2nd factor -> refuse (NixOS default)
+  #
+  # The two enables and the two orders belong together: enabling u2f/fprintd
+  # WITHOUT moving them after unix puts them before the password, where
+  # "sufficient" means they replace it.
+
+
+
+  security.pam.services = lib.genAttrs [ "login" "greetd" "hyprlock" "passwd" "chsh" "chfn"] (name: {
+
+
+  # explicitly enabling the auth devices for the apps mentioned above (irrelevant but better safe than sorry)
+  fprintAuth = true;
+  u2f.enable = true;
+
+  rules.auth.unix.control = lib.mkForce "requisite";
+  
+  rules.auth.u2f.order = config.security.pam.services.${name}.rules.auth.unix.order + 20;
+
+  rules.auth.fprintd.order = config.security.pam.services.${name}.rules.auth.unix.order + 10;
+
+  });
+
+  # Optional hardening: drop `nullok` (an empty password would pass unix).
+  # security.pam.services.login.allowNullPassword = false;
+  
+
+
   ##########################################################################
   # Audio (PipeWire)
   ##########################################################################
@@ -203,7 +258,6 @@ in
   ##########################################################################
   services.fwupd.enable = true;          # firmware updates
   services.thermald.enable = true;       # Intel thermal management
-  services.fprintd.enable = false;        # fingerprint reader (not wired yet )
   hardware.enableRedistributableFirmware = true;
 
   # Bluetooth
@@ -232,7 +286,7 @@ in
     isNormalUser = true;
     description = "user";
     initialPassword = "pw";
-    extraGroups = [ "wheel" "networkmanager" "video" "audio" ];
+    extraGroups = [ "wheel" "networkmanager" "video" "audio" "dialout"];
     shell = pkgs.bash;
   };
 
@@ -240,6 +294,8 @@ in
   # Packages
   ##########################################################################
   nixpkgs.config.allowUnfree = true;   # required for NVIDIA + Discord
+
+  programs.bash.interactiveShellInit = "fastfetch";
 
   programs.nix-ld = {
     enable = true;
@@ -255,22 +311,57 @@ in
 
   environment.systemPackages = with pkgs; [
     # core CLI
-    git wget curl
+      git 
+      wget 
+      curl
 
     # QuickShell environment
-    quickshell        # the QML shell runtime
-    matugen           # Material You palette generation (required)
-    awww              # wallpaper daemon with an IPC Brain_Shell drives
-    imagemagick       # image processing for wallpaper/colour work
-    wf-recorder       # screen recording
-    cava              # audio visualiser widget
-    lm_sensors        # temperature readouts
-    hyprsunset        # colour temperature
-    hyprpolkitagent   # replaces polkit-gnome
-    qt6Packages.qt6ct
-    hyprshutdown
+      quickshell        # the QML shell runtime
+      matugen           # Material You palette generation (required)
+      awww              # wallpaper daemon with an IPC Brain_Shell drives
+      imagemagick       # image processing for wallpaper/colour work
+      wf-recorder       # screen recording
+      cava              # audio visualiser widget
+      lm_sensors        # temperature readouts
+      hyprsunset        # colour temperature
+      hyprpolkitagent   # replaces polkit-gnome
+      qt6Packages.qt6ct
+      hyprshutdown
+      grimblast
+      ranger
 
 
+    # fan control (called by Brain_Shell via sudo)
+      (writeShellScriptBin "fan-mode" ''
+        set -eu
+
+        mode="''${1:-}"
+
+        case "$mode" in
+          auto)
+            ${systemd}/bin/systemctl start thinkfan
+            ;;
+          quiet|max)
+            if [ "$mode" = quiet ]; then
+              level="3"            # GUESS: replace after measuring level 1
+            else
+              level="full-speed"
+            fi
+
+            ${systemd}/bin/systemctl stop thinkfan
+            if ! echo "level $level" > /proc/acpi/ibm/fan; then
+              # write failed: don't leave the fan stuck at the old level
+              ${systemd}/bin/systemctl start thinkfan
+              echo "fan-mode: could not write level $level" >&2
+              exit 1
+            fi
+            ;;
+          *)
+            echo "usage: fan-mode quiet|auto|max" >&2
+            exit 2
+            ;;
+        esac
+      '')
 
     # terminal
       kitty           
@@ -291,47 +382,60 @@ in
       nwg-displays    # GUI monitor layout manager
 
     # waybar modules / dependencies
-    pavucontrol     # audio GUI
-    alacritty       # terminal emulator
-    playerctl       # media player control
-    adwaita-icon-theme  # icon package
-    nwg-look               # GTK settings (action-2-1)
-    libsForQt5.qtstyleplugin-kvantum  # only if you use Qt theming
-    htop            # if not already present
-    # bluez           # already present in l. 153
-    # networkmanager  # already present in l. 32
-    
-    gvfs
-    libnotify
+      pavucontrol     # audio GUI
+      alacritty       # terminal emulator
+      playerctl       # media player control
+      adwaita-icon-theme  # icon package
+      nwg-look               # GTK settings (action-2-1)
+      libsForQt5.qtstyleplugin-kvantum  # only if you use Qt theming
+      htop            # if not already present
+      # bluez           # already present in l. 153
+      # networkmanager  # already present in l. 32
+      gvfs
+      libnotify
 
     # apps
-    ani-cli         # anime torrent
-    brave           # browser
-    google-chrome   # browser
-    mpv             # media player
-    vesktop         # Discord (Wayland-native client)
-    spotify         # Spotify
-    spicetify-cli   # Spotify customization CLI
-    teams-for-linux # microsoft teams (community version)
-    p3x-onenote     # Linux Electron Onenote
-    libreoffice     # Office
-    siyuan          # notetaking
-    masterpdfeditor4 # pdfs 
+      ani-cli         # anime torrent
+      brave           # browser
+      google-chrome   # browser
+      mpv             # media player
+      vesktop         # Discord (Wayland-native client)
+      spotify         # Spotify
+      spicetify-cli   # Spotify customization CLI
+      libreoffice     # Office
+      siyuan          # notetaking
+      masterpdfeditor4 # pdfs 
+      teams-for-linux # microsoft teams (community version)
+      (makeDesktopItem {
+        name = "fi46-teams";
+        desktopName = "FI46 Teams";
+        exec= "/run/current-system/sw/bin/teams-for-linux --user-data-dir=/home/user/.config/teams-account2";
+        icon = "teams-for-linux";
+      })
+      (makeDesktopItem {
+        name = "fit61-teams";
+        desktopName = "FIT61 Teams";
+        exec= "/run/current-system/sw/bin/teams-for-linux --user-data-dir=/home/user/.config/teams-account3";
+        icon = "teams-for-linux";
+      })
+
 
     # dev
-    vscodium        # editor
-    claude-code     # agentic coding tool
-    dotnet-sdk      # dotnet sdk
-    python3         # python3
-    devenv          # declarative development environments
-    pkgs-unstable.cisco-packet-tracer_9 # packet tracer for school
+      vscodium        # editor
+      claude-code     # agentic coding tool
+      dotnet-sdk      # dotnet sdk
+      python3         # python3
+      devenv          # declarative development environments
+      pkgs-unstable.cisco-packet-tracer_9 # packet tracer for school
+      arduino         # arduino IDE for school
+      bluej           # java editor for school
   
 
     # gpu / diagnostics
-    mesa-demos
-    vulkan-tools
-    libva-utils     # `vainfo` to verify VAAPI
-    nvtopPackages.full
+      mesa-demos
+      vulkan-tools
+      libva-utils     # `vainfo` to verify VAAPI
+      nvtopPackages.full
   ];
 
   fonts.packages = with pkgs; [

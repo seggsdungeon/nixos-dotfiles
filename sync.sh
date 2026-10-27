@@ -1,3 +1,4 @@
+
 #!/usr/bin/env bash
 # Sync live config into ~/dotfiles and push.
 # Fails loudly: a partial sync must not look like a clean one.
@@ -32,10 +33,14 @@ rsync -a --delete "$USER/.config/nwg-displays/" "$DOTS/.config/nwg-displays/"
 # Uncomment once these exist (post-install). Your patched hypridle.conf and
 # hyprlock.conf live in a git clone, so `git pull` reverts them — copying
 # them here is a stopgap until the source is pinned properly.
-# mkdir -p "$DOTS/.config/Brain_Shell" "$DOTS/brain-shell-patches"
-# rsync -a --delete "$USER/.config/Brain_Shell/" "$DOTS/.config/Brain_Shell/"
-# cp "$USER/.local/src/Brain_Shell/src/config/hypridle.conf" "$DOTS/brain-shell-patches/"
-# cp "$USER/.local/src/Brain_Shell/src/config/hyprlock.conf" "$DOTS/brain-shell-patches/"
+mkdir -p "$DOTS/.config/Brain_Shell" "$DOTS/brain-shell-patches"
+rsync -a --delete \
+ --exclude 'matugen/' \
+ --exclude '.v*_migrated' \
+ --exclude '*.lua' \
+ --exclude 'src/user_data/app_frecency.json' \
+ --exclude 'src/user_data/tasks.json' \
+ "$USER/.config/Brain_Shell/" "$DOTS/.config/Brain_Shell/"
 
 # --- Commit --------------------------------------------------------------
 cd "$DOTS"
@@ -47,4 +52,4 @@ if git diff --cached --quiet; then
 fi                              # non-zero, which set -e would treat as failure
 
 git commit -m "sync $(date +%Y-%m-%d)"
-git push
+#git push

@@ -1,0 +1,22 @@
+{
+  "dashboard-home": {
+    "mods": "SUPER + SHIFT",
+    "key": "D"
+  },
+  "dashboard-launcher": {
+    "mods": "SUPER",
+    "key": "D"
+  },
+  "vpn-toggle": {
+    "mods": "SUPER + ALT",
+    "key": "V"
+  },
+  "audioIn-toggle": {
+    "mods": "SUPER",
+    "key": "I"
+  },
+  "screenshot-toggle": {
+    "mods": "SUPER + SHIFT",
+    "key": "S"
+  }
+}
