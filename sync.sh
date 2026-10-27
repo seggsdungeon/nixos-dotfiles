@@ -52,4 +52,4 @@ if git diff --cached --quiet; then
 fi                              # non-zero, which set -e would treat as failure
 
 git commit -m "sync $(date +%Y-%m-%d)"
-#git push
+git push
